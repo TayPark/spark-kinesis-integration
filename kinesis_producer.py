@@ -16,7 +16,8 @@ AWS_CONFIG = {
     "aws_region": env_config['AWS']['AWS_REGION'],
     "aws_access_key_id": env_config['AWS']['AWS_ACCESS_KEY_ID'],
     "aws_secret_access_key": env_config['AWS']['AWS_SECRET_ACCESS_KEY'],
-    "stream_name": env_config['Kinesis']['AWS_KINESIS_STREAM_NAME']
+    "stream_name": env_config['KINESIS']['AWS_KINESIS_STREAM_NAME'],
+    "partition_key": env_config['KINESIS']['AWS_KINESIS_PARTITION_KEY'],
 }
 
 def get_kinesis_client_connection(config):
@@ -115,7 +116,7 @@ while True:
         })
 
         client.put_record(StreamName=stream_name,
-                          Data=data, PartitionKey='sparkplus')
+                          Data=data, PartitionKey=AWS_CONFIG['partition_key'])
         print(f"order {order}: {data}")
         order += 1
 
