@@ -1,7 +1,6 @@
 from pyspark.sql import SparkSession
-from pyspark.sql.functions import col, from_json, from_unixtime
+from pyspark.sql.functions import col, from_json, from_unixtime, to_timestamp, unix_timestamp, window
 import configparser
-
 from pyspark.sql.types import DoubleType, IntegerType, StringType, StructField, StructType
 
 env_config = configparser.ConfigParser()
@@ -20,7 +19,7 @@ sc = SparkSession \
     .appName("Kinesis consumer") \
     .getOrCreate()
 
-endpointUrl = f'https://kinesis.ap-northeast-2.amazonaws.com'
+endpointUrl = 'https://kinesis.ap-northeast-2.amazonaws.com'
 
 kinesisDF = sc.readStream \
     .format('kinesis') \
@@ -28,7 +27,7 @@ kinesisDF = sc.readStream \
     .option('awsAccessKeyId', AWS_CONFIG['aws_access_key_id']) \
     .option('awsSecretKey', AWS_CONFIG['aws_secret_access_key']) \
     .option('streamName', AWS_CONFIG['aws_kinesis_stream_name']) \
-    .option('startingposition', 'latest') \
+    .option('initialPosition', 'earliest') \
     .load()
 
 dataSchema = StructType([
@@ -43,12 +42,18 @@ dataSchema = StructType([
 jsonParsedDF = kinesisDF.selectExpr("CAST(data AS STRING)") \
     .select(from_json(col("data"), dataSchema).alias('parsed_data')) \
     .select('parsed_data.*') \
-    .withColumn('unix_timestamp', from_unixtime(col('timestamp').alias('unix_timestamp')))
+    .withColumn('unix_timestamp', to_timestamp(col('timestamp'))) \
+    .drop(col('timestamp'))
 
-jsonParsedDF.writeStream \
+sumPriceDF = jsonParsedDF \
+    .withWatermark('unix_timestamp', '5 minutes') \
+    .groupBy(window(jsonParsedDF.unix_timestamp, '10 minutes', '5 minutes')) \
+    .sum('price')
+
+sumPriceDF.writeStream \
     .format("console") \
-    .outputMode("append") \
-    .trigger(processingTime='2 seconds') \
+    .outputMode("update") \
+    .trigger(processingTime='5 seconds') \
     .option("checkpointLocation", "checkpoint/") \
     .start() \
     .awaitTermination()

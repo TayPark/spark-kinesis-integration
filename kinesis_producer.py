@@ -20,6 +20,7 @@ AWS_CONFIG = {
     "partition_key": env_config['KINESIS']['AWS_KINESIS_PARTITION_KEY'],
 }
 
+
 def get_kinesis_client_connection(config):
     """Get connection with AWS Kinesis with given config.
 
@@ -35,7 +36,7 @@ def get_kinesis_client_connection(config):
     }
     """
     return boto3.client(service_name='kinesis', aws_access_key_id=config['aws_access_key_id'],
-                         aws_secret_access_key=['aws_secret_access_key'], region_name=config['aws_region'])
+                        aws_secret_access_key=['aws_secret_access_key'], region_name=config['aws_region'])
 
 
 class KinesisClient:
@@ -96,31 +97,37 @@ class KinesisClient:
 2021.10.03 03:55 파일로 credential 주고 제어하고 싶었는데 내부 오류인지 auth가 되지 않아 중도 포기
 """
 
+
+def generate_fake_data():
+    return json.dumps({
+        "timestamp": time.time(),
+        "name": fake.name(),
+        "address": fake.address(),
+        "lat": float(fake.latitude()),
+        "lon": float(fake.longitude()),
+        "price": fake.random_int(min=1, max=10000),
+    })
+
+
 client = boto3.Session().client('kinesis')
 stream_name = client.list_streams()['StreamNames'][0]
 shard_id = client.list_shards(StreamName=stream_name)['Shards'][0]['ShardId']
 shard_iterator = client.get_shard_iterator(
     StreamName=stream_name, ShardId=shard_id, ShardIteratorType='LATEST')['ShardIterator']
 
-order = 0
+total_message_amount = 0
+NUM_INSERT = 1000
 while True:
 
-    for _ in range(10):
-        data = json.dumps({
-            "timestamp": time.time(),
-            "name": fake.name(),
-            "address": fake.address(),
-            "lat": float(fake.latitude()),
-            "lon": float(fake.longitude()),
-            "price": fake.random_int(min=1, max=10000),
-        })
-
+    for _ in range(NUM_INSERT):
+        payload = generate_fake_data()
         client.put_record(StreamName=stream_name,
-                          Data=data, PartitionKey=AWS_CONFIG['partition_key'])
-        print(f"order {order}: {data}")
-        order += 1
+                          Data=payload, PartitionKey=AWS_CONFIG['partition_key'])
+    total_message_amount += NUM_INSERT
+    print(f"Total number of messages: {total_message_amount}")
 
+    """
+    Release comment print() below to check whether message sent well to kinesis or not.
+    """
     # print(client.get_records(ShardIterator=shard_iterator))
     sleep(1)
-
-
