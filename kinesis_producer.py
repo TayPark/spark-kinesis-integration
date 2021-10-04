@@ -1,4 +1,4 @@
-from time import sleep
+from datetime import datetime
 from typing import Dict, Tuple
 from faker import Faker
 import boto3
@@ -119,15 +119,17 @@ total_message_amount = 0
 NUM_INSERT = 1000
 while True:
 
-    for _ in range(NUM_INSERT):
-        payload = generate_fake_data()
-        client.put_record(StreamName=stream_name,
-                          Data=payload, PartitionKey=AWS_CONFIG['partition_key'])
-    total_message_amount += NUM_INSERT
-    print(f"Total number of messages: {total_message_amount}")
+    payload = generate_fake_data()
+    kinesis_response = client.put_record(StreamName=stream_name,
+        Data=payload, PartitionKey=AWS_CONFIG['partition_key'])
+
+    if kinesis_response['ResponseMetadata']['HTTPStatusCode'] == 200:
+        total_message_amount += 1
+        
+        if total_message_amount % 100 == 0:
+            print(datetime.utcnow(), total_message_amount)
 
     """
     Release comment print() below to check whether message sent well to kinesis or not.
     """
     # print(client.get_records(ShardIterator=shard_iterator))
-    sleep(1)
