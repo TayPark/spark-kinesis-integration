@@ -14,14 +14,14 @@ AWS_CONFIG = {
     'aws_kinesis_partition_key': env_config['KINESIS']['AWS_KINESIS_PARTITION_KEY']
 }
 
-sc = SparkSession \
+ss = SparkSession \
     .builder \
     .appName("Kinesis consumer") \
     .getOrCreate()
 
 endpointUrl = 'https://kinesis.ap-northeast-2.amazonaws.com'
 
-kinesisDF = sc.readStream \
+kinesisDF = ss.readStream \
     .format('kinesis') \
     .option('endpointUrl', endpointUrl) \
     .option('awsAccessKeyId', AWS_CONFIG['aws_access_key_id']) \
