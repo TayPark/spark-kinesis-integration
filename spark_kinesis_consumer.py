@@ -1,7 +1,8 @@
+from datetime import datetime
 from pyspark.sql import SparkSession
-from pyspark.sql.functions import col, from_json, to_timestamp, window
+from pyspark.sql.functions import col, from_json, lit, to_timestamp, window
 import configparser
-from pyspark.sql.types import DoubleType, IntegerType, StringType, StructField, StructType
+from pyspark.sql.types import IntegerType, StringType, StructField, StructType, TimestampType
 
 env_config = configparser.ConfigParser()
 env_config.read("config.ini")
@@ -31,29 +32,36 @@ kinesisDF = ss.readStream \
     .load()
 
 dataSchema = StructType([
-    StructField("timestamp", DoubleType(), True),
-    StructField("name", StringType(), True),
-    StructField("address", StringType(), True),
-    StructField("lat", DoubleType(), True),
-    StructField("lon", DoubleType(), True),
-    StructField("price", IntegerType(), True),
+    StructField("구분명", StringType(), True),
+    StructField("집화일자", TimestampType(), True),
+    StructField("집배일자", TimestampType(), True),
+    StructField("운임명", StringType(), True),
+    StructField("수량(BOX)", IntegerType(), True),
+    StructField("운임", IntegerType(), True),
+    StructField("집화여부", StringType(), True),
+    StructField("집배시간", IntegerType(), True),
+    StructField("배달일자", TimestampType(), True),
+    StructField("장비구분", StringType(), True),
+    StructField("품목", StringType(), True),
+    StructField("SM명", StringType(), True),
+    StructField("받는분주소", StringType(), True),
 ])
 
 jsonParsedDF = kinesisDF.selectExpr("CAST(data AS STRING)") \
     .select(from_json(col("data"), dataSchema).alias('parsed_data')) \
     .select('parsed_data.*') \
-    .withColumn('unix_timestamp', to_timestamp(col('timestamp'))) \
-    .drop(col('timestamp'))
+    .withColumn('unix_timestamp', to_timestamp(lit(datetime.now()))) \
+    .select("집화일자", "품목", "받는분주소") \
+    .groupBy("품목").count()
+    
+# print(jsonParsedDF.count())
 
-sumPriceDF = jsonParsedDF \
-    .withWatermark('unix_timestamp', '5 minutes') \
-    .groupBy(window(jsonParsedDF.unix_timestamp, '10 minutes', '5 minutes')) \
-    .sum('price')
-
-sumPriceDF.writeStream \
+jsonParsedDF \
+    .writeStream \
     .format("console") \
+    .option("checkpointLocation", "checkpoint/") \
+    .option("startingOffsets", 'latest') \
     .outputMode("update") \
     .trigger(processingTime='5 seconds') \
-    .option("checkpointLocation", "checkpoint/") \
     .start() \
     .awaitTermination()

@@ -1,4 +1,9 @@
+# Spark dependencies
 checkpoint/
-kinesis_write.csv/
+data/
 
+# Python config
 config.ini
+
+# macOS dependencies
+.DS_Store
