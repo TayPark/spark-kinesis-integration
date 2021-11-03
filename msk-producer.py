@@ -39,8 +39,10 @@ if __name__ == "__main__":
             for i, row in enumerate(csv_file):
                 if i == 0: continue
 
+                # 순번 제외
                 parsed = row.split(",")[1:]
-                payload = json.dumps({
+                
+                payload = {
                     "구분명": parsed[0],
                     "집화일자": parsed[1],
                     "집배일자": parsed[2],
@@ -53,7 +55,7 @@ if __name__ == "__main__":
                     "품목": parsed[10],
                     "SM명": parsed[11],
                     "받는분주소": parsed[12].strip(),
-                })
+                }
 
                 producer.send(kafka_topic, payload)
 
